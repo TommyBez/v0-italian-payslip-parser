@@ -1,6 +1,5 @@
 import { generateText, Output } from "ai"
 import { payslipDataSchema } from "@/lib/payslip-types"
-import { parsePayslipNumbers } from "@/lib/decimal-parser"
 
 export const maxDuration = 60
 
@@ -24,22 +23,25 @@ Key Italian payslip terms to look for:
 - CCNL = National collective labor agreement
 - MATRICOLA = Employee ID
 
-CRITICAL - Decimal Separator Handling:
-Italian payslips often use a VERTICAL LINE (|) as the decimal separator, for example:
-- "1.234|56" means 1234.56 EUR
-- "100|00" means 100.00 EUR
-- "15|50" means 15.50 EUR
+CRITICAL - Visual Decimal Separator in Italian Payslips:
+Many Italian payslips use a GRAPHICAL VERTICAL LINE in tables to visually separate the integer part from the decimal part of numbers.
+This vertical line is NOT a text character, but a TABLE BORDER or visual divider.
 
-When you see a vertical line in numerical values, PRESERVE IT EXACTLY AS IS in the output.
-The parsing layer will convert it to standard decimal format. Examples of correct output:
-- importo: "1.234|56" → will become 1234.56
-- aliquota: "8|47" → will become 8.47
-- totale: "250|00" → will become 250.00
+When you see numbers in table cells where:
+- A vertical border/line separates digits (e.g., a cell shows "1234" then a line then "56")
+- This means the value is 1234.56 (the line indicates the decimal point)
+
+Examples of how to interpret:
+- "1234 | 56" visually in a table = 1234.56 EUR
+- "100 | 00" visually = 100.00 EUR  
+- "2500 | 80" visually = 2500.80 EUR
+
+Always output numeric values as standard decimal numbers (e.g., 1234.56, not "1234|56").
 
 Important instructions:
-1. Extract all monetary values in EUR, preserving vertical line separators if present
-2. For numbers with vertical lines, keep the format exactly as found (e.g., "2.500|80")
-3. For other numbers without vertical lines, use standard formats (dots for thousands, commas for decimals, or just dots)
+1. Extract all monetary values in EUR as standard decimal numbers
+2. Interpret vertical graphical lines in tables as decimal separators
+3. Use standard decimal format in your output (e.g., 1234.56)
 4. For the codice fiscale, ensure it follows the Italian format (16 characters)
 5. For dates, use DD/MM/YYYY format
 6. If a field is not visible or unclear, return null for that field
@@ -110,12 +112,9 @@ export async function POST(req: Request) {
       ],
     })
 
-    // Parse all numeric values, handling vertical line decimal separators
-    const parsedData = parsePayslipNumbers(output)
-
     return Response.json({
       success: true,
-      data: parsedData,
+      data: output,
     })
   } catch (error) {
     console.error("Extraction error:", error)

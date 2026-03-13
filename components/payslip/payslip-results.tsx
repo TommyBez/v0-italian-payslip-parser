@@ -1,7 +1,6 @@
 "use client"
 
 import { PayslipData, SalaryComponent, Deduction } from "@/lib/payslip-types"
-import { formatItalianNumber } from "@/lib/decimal-parser"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -25,8 +24,10 @@ interface PayslipResultsProps {
 
 function formatCurrency(value: number | null | undefined): string {
   if (value === null || value === undefined) return "N/D"
-  // Use Italian formatter: 1.234,56 EUR format
-  return formatItalianNumber(value, 2) + " €"
+  return new Intl.NumberFormat("it-IT", {
+    style: "currency",
+    currency: "EUR",
+  }).format(value)
 }
 
 function formatValue(value: string | number | null | undefined): string {

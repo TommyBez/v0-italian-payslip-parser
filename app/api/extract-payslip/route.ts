@@ -1,5 +1,6 @@
 import { generateText, Output } from "ai"
 import { payslipDataSchema } from "@/lib/payslip-types"
+import { parsePayslipNumbers } from "@/lib/decimal-parser"
 
 export const maxDuration = 60
 
@@ -23,14 +24,28 @@ Key Italian payslip terms to look for:
 - CCNL = National collective labor agreement
 - MATRICOLA = Employee ID
 
+CRITICAL - Decimal Separator Handling:
+Italian payslips often use a VERTICAL LINE (|) as the decimal separator, for example:
+- "1.234|56" means 1234.56 EUR
+- "100|00" means 100.00 EUR
+- "15|50" means 15.50 EUR
+
+When you see a vertical line in numerical values, PRESERVE IT EXACTLY AS IS in the output.
+The parsing layer will convert it to standard decimal format. Examples of correct output:
+- importo: "1.234|56" → will become 1234.56
+- aliquota: "8|47" → will become 8.47
+- totale: "250|00" → will become 250.00
+
 Important instructions:
-1. Extract all monetary values in EUR
-2. For the codice fiscale, ensure it follows the Italian format (16 characters)
-3. For dates, use DD/MM/YYYY format
-4. If a field is not visible or unclear, return null for that field
-5. Calculate confidence based on how clearly the document is readable
-6. Mask sensitive data like full IBAN (show only last 4 digits)
-7. Note any anomalies or issues in the 'note' field
+1. Extract all monetary values in EUR, preserving vertical line separators if present
+2. For numbers with vertical lines, keep the format exactly as found (e.g., "2.500|80")
+3. For other numbers without vertical lines, use standard formats (dots for thousands, commas for decimals, or just dots)
+4. For the codice fiscale, ensure it follows the Italian format (16 characters)
+5. For dates, use DD/MM/YYYY format
+6. If a field is not visible or unclear, return null for that field
+7. Calculate confidence based on how clearly the document is readable
+8. Mask sensitive data like full IBAN (show only last 4 digits)
+9. Note any anomalies or issues in the 'note' field
 
 Analyze the document thoroughly and return the structured data.`
 
@@ -95,9 +110,12 @@ export async function POST(req: Request) {
       ],
     })
 
+    // Parse all numeric values, handling vertical line decimal separators
+    const parsedData = parsePayslipNumbers(output)
+
     return Response.json({
       success: true,
-      data: output,
+      data: parsedData,
     })
   } catch (error) {
     console.error("Extraction error:", error)

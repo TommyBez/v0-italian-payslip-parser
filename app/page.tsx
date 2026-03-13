@@ -6,6 +6,7 @@ import { PayslipResults } from "@/components/payslip/payslip-results"
 import { PrivacyNotice } from "@/components/payslip/privacy-notice"
 import { ErrorDisplay } from "@/components/payslip/error-display"
 import { FeatureCards } from "@/components/payslip/feature-cards"
+import { DecimalFormatInfo } from "@/components/payslip/decimal-format-info"
 import { Button } from "@/components/ui/button"
 import { FileDown, RefreshCw, FileText } from "lucide-react"
 import type { PayslipData, ExtractionResult } from "@/lib/payslip-types"
@@ -120,6 +121,11 @@ export default function PayslipExtractor() {
 
         {/* Main Content */}
         <div className="mx-auto max-w-4xl space-y-6">
+          {/* Decimal Format Info - show when idle or processing */}
+          {(state === "idle" || state === "processing") && (
+            <DecimalFormatInfo />
+          )}
+
           {/* Upload Zone */}
           <UploadZone
             onFileSelect={handleFileSelect}

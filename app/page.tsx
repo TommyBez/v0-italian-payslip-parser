@@ -141,7 +141,7 @@ export default function PayslipExtractor() {
           {state === "success" && modelResults.length > 0 && (
             <div className="space-y-6">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
                   {modelResults.map((result) => (
                     <TabsTrigger
                       key={result.model}
@@ -287,7 +287,7 @@ export default function PayslipExtractor() {
       <footer className="mt-auto border-t bg-muted/30 py-6">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
           <p>
-            Powered by <strong>Mistral Large 3</strong>, <strong>Gemini 3 Flash</strong> e <strong>Pixtral Large</strong> via Vercel AI Gateway
+            Powered by <strong>Mistral</strong>, <strong>Gemini</strong>, <strong>Pixtral</strong> e <strong>Qwen</strong> via Vercel AI Gateway
           </p>
           <p className="mt-1">
             I tuoi dati non vengono mai salvati. Elaborazione conforme al GDPR.

@@ -9,12 +9,14 @@ const MODEL_PRICING: Record<string, { input: number; output: number }> = {
   "mistral/mistral-large-3": { input: 0.50, output: 1.50 },
   "google/gemini-3-flash": { input: 0.50, output: 3.00 },
   "mistral/pixtral-large": { input: 2.00, output: 6.00 },
+  "alibaba/qwen3.5-plus": { input: 0.80, output: 2.40 },
 }
 
 const MODELS = [
   { id: "mistral/mistral-large-3", label: "Mistral Large 3" },
   { id: "google/gemini-3-flash", label: "Gemini 3 Flash" },
   { id: "mistral/pixtral-large", label: "Pixtral Large" },
+  { id: "alibaba/qwen3.5-plus", label: "Qwen 3.5 Plus" },
 ] as const
 
 function calculateCost(modelId: string, usage: TokenUsage): CostBreakdown {

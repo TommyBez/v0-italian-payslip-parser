@@ -1,7 +1,12 @@
 import { generateText, Output } from "ai"
-import { payslipDataSchema } from "@/lib/payslip-types"
+import { payslipDataSchema, ModelResult } from "@/lib/payslip-types"
 
-export const maxDuration = 60
+export const maxDuration = 120
+
+const MODELS = [
+  { id: "mistral/mistral-large-3", label: "Mistral Large 3" },
+  { id: "google/gemini-3-flash", label: "Gemini 3 Flash" },
+] as const
 
 const EXTRACTION_PROMPT = `You are an expert in Italian payroll systems and payslip (busta paga) analysis. 
 Extract all available information from this Italian payslip document accurately.
@@ -83,45 +88,73 @@ export async function POST(req: Request) {
     const bytes = await file.arrayBuffer()
     const base64 = Buffer.from(bytes).toString("base64")
 
-    const { output } = await generateText({
-      model: "mistral/mistral-large-3",
-      output: Output.object({
-        schema: payslipDataSchema,
-      }),
-      messages: [
-        {
-          role: "user",
-          content: [
+    // Prepare the message content for both models
+    const messageContent = [
+      {
+        type: "text" as const,
+        text: EXTRACTION_PROMPT,
+      },
+      file.type === "application/pdf"
+        ? {
+            type: "file" as const,
+            data: base64,
+            mediaType: "application/pdf" as const,
+            filename: file.name,
+          }
+        : {
+            type: "image" as const,
+            image: `data:${file.type};base64,${base64}`,
+          },
+    ]
+
+    // Run both models in parallel
+    const extractionPromises = MODELS.map(async (model): Promise<ModelResult> => {
+      const startTime = Date.now()
+      try {
+        const { output } = await generateText({
+          model: model.id,
+          output: Output.object({
+            schema: payslipDataSchema,
+          }),
+          messages: [
             {
-              type: "text",
-              text: EXTRACTION_PROMPT,
+              role: "user",
+              content: messageContent,
             },
-            file.type === "application/pdf"
-              ? {
-                  type: "file",
-                  data: base64,
-                  mediaType: "application/pdf",
-                  filename: file.name,
-                }
-              : {
-                  type: "image",
-                  image: `data:${file.type};base64,${base64}`,
-                },
           ],
-        },
-      ],
+        })
+
+        return {
+          model: model.id,
+          modelLabel: model.label,
+          success: true,
+          data: output,
+          processingTime: Date.now() - startTime,
+        }
+      } catch (error) {
+        return {
+          model: model.id,
+          modelLabel: model.label,
+          success: false,
+          data: null,
+          error: error instanceof Error ? error.message : "Extraction failed",
+          processingTime: Date.now() - startTime,
+        }
+      }
     })
 
+    const results = await Promise.all(extractionPromises)
+
     return Response.json({
-      success: true,
-      data: output,
+      success: results.some((r) => r.success),
+      results,
     })
   } catch (error) {
     console.error("Extraction error:", error)
     return Response.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to extract payslip data",
+        results: [],
       },
       { status: 500 }
     )

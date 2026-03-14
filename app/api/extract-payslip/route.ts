@@ -9,14 +9,12 @@ const MODEL_PRICING: Record<string, { input: number; output: number }> = {
   "mistral/mistral-large-3": { input: 0.50, output: 1.50 },
   "google/gemini-3-flash": { input: 0.50, output: 3.00 },
   "mistral/pixtral-large": { input: 2.00, output: 6.00 },
-  "alibaba/qwen3.5-plus": { input: 0.80, output: 2.40 },
 }
 
 const MODELS = [
-  { id: "mistral/mistral-large-3", label: "Mistral Large 3", supportsPdf: true },
-  { id: "google/gemini-3-flash", label: "Gemini 3 Flash", supportsPdf: true },
-  { id: "mistral/pixtral-large", label: "Pixtral Large", supportsPdf: true },
-  { id: "alibaba/qwen3.5-plus", label: "Qwen 3.5 Plus", supportsPdf: false },
+  { id: "mistral/mistral-large-3", label: "Mistral Large 3" },
+  { id: "google/gemini-3-flash", label: "Gemini 3 Flash" },
+  { id: "mistral/pixtral-large", label: "Pixtral Large" },
 ] as const
 
 function calculateCost(modelId: string, usage: TokenUsage): CostBreakdown {
@@ -116,20 +114,8 @@ export async function POST(req: Request) {
     // Run all models in parallel
     const extractionPromises = MODELS.map(async (model): Promise<ModelResult> => {
       const startTime = Date.now()
-      
-      // Skip models that don't support PDF when file is PDF
-      if (isPdf && !model.supportsPdf) {
-        return {
-          model: model.id,
-          modelLabel: model.label,
-          success: false,
-          data: null,
-          error: "Questo modello non supporta i file PDF. Carica un'immagine per usare questo modello.",
-          processingTime: Date.now() - startTime,
-        }
-      }
 
-      // Build message content based on file type and model capabilities
+      // Build message content based on file type
       const messageContent: Array<
         | { type: "text"; text: string }
         | { type: "image"; image: string }

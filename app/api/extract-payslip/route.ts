@@ -6,6 +6,7 @@ export const maxDuration = 120
 const MODELS = [
   { id: "mistral/mistral-large-3", label: "Mistral Large 3" },
   { id: "google/gemini-3-flash", label: "Gemini 3 Flash" },
+  { id: "mistral/pixtral-large", label: "Pixtral Large" },
 ] as const
 
 const EXTRACTION_PROMPT = `You are an expert in Italian payroll systems and payslip (busta paga) analysis. 

@@ -111,8 +111,16 @@ export type SalaryComponent = z.infer<typeof salaryComponentSchema>
 export type Deduction = z.infer<typeof deductionSchema>
 export type PayslipData = z.infer<typeof payslipDataSchema>
 
-export interface ExtractionResult {
+export interface ModelResult {
+  model: string
+  modelLabel: string
   success: boolean
   data: PayslipData | null
   error?: string
+  processingTime?: number
+}
+
+export interface ExtractionResult {
+  success: boolean
+  results: ModelResult[]
 }

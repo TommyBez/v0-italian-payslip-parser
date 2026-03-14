@@ -7,22 +7,26 @@ import { PrivacyNotice } from "@/components/payslip/privacy-notice"
 import { ErrorDisplay } from "@/components/payslip/error-display"
 import { FeatureCards } from "@/components/payslip/feature-cards"
 import { Button } from "@/components/ui/button"
-import { FileDown, RefreshCw, FileText } from "lucide-react"
-import type { PayslipData, ExtractionResult } from "@/lib/payslip-types"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { FileDown, RefreshCw, FileText, Clock, CheckCircle2, XCircle } from "lucide-react"
+import type { ModelResult, ExtractionResult } from "@/lib/payslip-types"
 
 type AppState = "idle" | "processing" | "success" | "error"
 
 export default function PayslipExtractor() {
   const [state, setState] = useState<AppState>("idle")
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [extractedData, setExtractedData] = useState<PayslipData | null>(null)
+  const [modelResults, setModelResults] = useState<ModelResult[]>([])
+  const [activeTab, setActiveTab] = useState<string>("")
   const [error, setError] = useState<string>("")
 
   const handleFileSelect = useCallback(async (file: File) => {
     setSelectedFile(file)
     setState("processing")
     setError("")
-    setExtractedData(null)
+    setModelResults([])
+    setActiveTab("")
 
     try {
       const formData = new FormData()
@@ -35,16 +39,15 @@ export default function PayslipExtractor() {
 
       const result: ExtractionResult = await response.json()
 
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || "Errore durante l'estrazione dei dati")
+      if (!response.ok || !result.success || result.results.length === 0) {
+        throw new Error("Errore durante l'estrazione dei dati")
       }
 
-      if (result.data) {
-        setExtractedData(result.data)
-        setState("success")
-      } else {
-        throw new Error("Nessun dato estratto dal documento")
-      }
+      setModelResults(result.results)
+      // Set first successful model as active tab
+      const firstSuccess = result.results.find((r) => r.success)
+      setActiveTab(firstSuccess?.model || result.results[0].model)
+      setState("success")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Si e verificato un errore imprevisto")
       setState("error")
@@ -53,7 +56,8 @@ export default function PayslipExtractor() {
 
   const handleClear = useCallback(() => {
     setSelectedFile(null)
-    setExtractedData(null)
+    setModelResults([])
+    setActiveTab("")
     setError("")
     setState("idle")
   }, [])
@@ -64,20 +68,20 @@ export default function PayslipExtractor() {
     }
   }, [selectedFile, handleFileSelect])
 
-  const handleExportJSON = useCallback(() => {
-    if (!extractedData) return
+  const handleExportJSON = useCallback((modelResult: ModelResult) => {
+    if (!modelResult.data) return
 
-    const dataStr = JSON.stringify(extractedData, null, 2)
+    const dataStr = JSON.stringify(modelResult.data, null, 2)
     const blob = new Blob([dataStr], { type: "application/json" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `busta-paga-${extractedData.periodo.mese}-${extractedData.periodo.anno}.json`
+    a.download = `busta-paga-${modelResult.modelLabel.replace(/\s+/g, "-").toLowerCase()}-${modelResult.data.periodo.mese}-${modelResult.data.periodo.anno}.json`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-  }, [extractedData])
+  }, [])
 
   return (
     <main className="min-h-screen bg-background">
@@ -95,11 +99,11 @@ export default function PayslipExtractor() {
               </p>
             </div>
           </div>
-          {state === "success" && (
-            <Button onClick={handleExportJSON} variant="outline" size="sm" className="gap-2">
-              <FileDown className="h-4 w-4" />
-              <span className="hidden sm:inline">Esporta JSON</span>
-            </Button>
+          {state === "success" && modelResults.length > 0 && (
+            <Badge variant="secondary" className="gap-1.5">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              {modelResults.filter((r) => r.success).length}/{modelResults.length} modelli
+            </Badge>
           )}
         </div>
       </header>
@@ -133,20 +137,83 @@ export default function PayslipExtractor() {
             <ErrorDisplay message={error} onRetry={handleRetry} />
           )}
 
-          {/* Results */}
-          {state === "success" && extractedData && (
+          {/* Results with Tabs */}
+          {state === "success" && modelResults.length > 0 && (
             <div className="space-y-6">
-              <PayslipResults data={extractedData} />
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  {modelResults.map((result) => (
+                    <TabsTrigger
+                      key={result.model}
+                      value={result.model}
+                      className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                    >
+                      {result.success ? (
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-destructive" />
+                      )}
+                      <span className="truncate">{result.modelLabel}</span>
+                      {result.processingTime && (
+                        <span className="hidden text-xs text-muted-foreground sm:inline">
+                          ({(result.processingTime / 1000).toFixed(1)}s)
+                        </span>
+                      )}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+                
+                {modelResults.map((result) => (
+                  <TabsContent key={result.model} value={result.model} className="mt-6">
+                    {result.success && result.data ? (
+                      <div className="space-y-6">
+                        {/* Processing Time Badge */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Clock className="h-4 w-4" />
+                            Elaborato in {((result.processingTime || 0) / 1000).toFixed(1)} secondi
+                          </div>
+                          {result.data.confidenza && (
+                            <Badge variant={result.data.confidenza >= 80 ? "default" : "secondary"}>
+                              Confidenza: {result.data.confidenza}%
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        <PayslipResults data={result.data} />
+                        
+                        {/* Export Button for this model */}
+                        <div className="flex justify-center">
+                          <Button
+                            onClick={() => handleExportJSON(result)}
+                            variant="outline"
+                            className="gap-2"
+                          >
+                            <FileDown className="h-4 w-4" />
+                            Scarica JSON ({result.modelLabel})
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center">
+                        <XCircle className="mx-auto h-10 w-10 text-destructive" />
+                        <h3 className="mt-3 font-semibold text-destructive">
+                          Estrazione Fallita
+                        </h3>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {result.error || "Il modello non e riuscito ad estrarre i dati dal documento."}
+                        </p>
+                      </div>
+                    )}
+                  </TabsContent>
+                ))}
+              </Tabs>
               
-              {/* Action Buttons */}
-              <div className="flex flex-wrap justify-center gap-3">
+              {/* Global Action */}
+              <div className="flex justify-center pt-4">
                 <Button onClick={handleClear} variant="outline" className="gap-2">
                   <RefreshCw className="h-4 w-4" />
                   Nuova Estrazione
-                </Button>
-                <Button onClick={handleExportJSON} className="gap-2">
-                  <FileDown className="h-4 w-4" />
-                  Scarica JSON
                 </Button>
               </div>
             </div>
@@ -171,7 +238,7 @@ export default function PayslipExtractor() {
       <footer className="mt-auto border-t bg-muted/30 py-6">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
           <p>
-            Powered by <strong>Mistral AI</strong> via Vercel AI Gateway
+            Powered by <strong>Mistral Large 3</strong>, <strong>Gemini 3 Flash</strong> e <strong>Pixtral Large</strong> via Vercel AI Gateway
           </p>
           <p className="mt-1">
             I tuoi dati non vengono mai salvati. Elaborazione conforme al GDPR.

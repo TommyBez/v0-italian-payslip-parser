@@ -13,10 +13,10 @@ const MODEL_PRICING: Record<string, { input: number; output: number }> = {
 }
 
 const MODELS = [
-  { id: "mistral/mistral-large-3", label: "Mistral Large 3", supportsPdf: true, imageFormat: "standard" },
-  { id: "google/gemini-3-flash", label: "Gemini 3 Flash", supportsPdf: true, imageFormat: "standard" },
-  { id: "mistral/pixtral-large", label: "Pixtral Large", supportsPdf: true, imageFormat: "standard" },
-  { id: "alibaba/qwen3.5-plus", label: "Qwen 3.5 Plus", supportsPdf: false, imageFormat: "url" },
+  { id: "mistral/mistral-large-3", label: "Mistral Large 3", supportsPdf: true },
+  { id: "google/gemini-3-flash", label: "Gemini 3 Flash", supportsPdf: true },
+  { id: "mistral/pixtral-large", label: "Pixtral Large", supportsPdf: true },
+  { id: "alibaba/qwen3.5-plus", label: "Qwen 3.5 Plus", supportsPdf: false },
 ] as const
 
 function calculateCost(modelId: string, usage: TokenUsage): CostBreakdown {
@@ -129,31 +129,32 @@ export async function POST(req: Request) {
         }
       }
 
-      // Build message content based on model capabilities
-      const fileContent = isPdf
-        ? {
-            type: "file" as const,
-            data: base64,
-            mediaType: "application/pdf" as const,
-            filename: file.name,
-          }
-        : model.imageFormat === "url"
-          ? {
-              type: "image_url" as const,
-              image_url: { url: dataUrl },
-            }
-          : {
-              type: "image" as const,
-              image: dataUrl,
-            }
-
-      const messageContent = [
+      // Build message content based on file type and model capabilities
+      const messageContent: Array<
+        | { type: "text"; text: string }
+        | { type: "image"; image: string }
+        | { type: "file"; data: string; mediaType: "application/pdf"; filename: string }
+      > = [
         {
-          type: "text" as const,
+          type: "text",
           text: EXTRACTION_PROMPT,
         },
-        fileContent,
       ]
+
+      if (isPdf) {
+        messageContent.push({
+          type: "file",
+          data: base64,
+          mediaType: "application/pdf",
+          filename: file.name,
+        })
+      } else {
+        // For images, use base64 string directly (not data URL)
+        messageContent.push({
+          type: "image",
+          image: base64,
+        })
+      }
 
       try {
         const { output, usage } = await generateText({

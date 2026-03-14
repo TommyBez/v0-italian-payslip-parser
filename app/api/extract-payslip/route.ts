@@ -13,10 +13,10 @@ const MODEL_PRICING: Record<string, { input: number; output: number }> = {
 }
 
 const MODELS = [
-  { id: "mistral/mistral-large-3", label: "Mistral Large 3" },
-  { id: "google/gemini-3-flash", label: "Gemini 3 Flash" },
-  { id: "mistral/pixtral-large", label: "Pixtral Large" },
-  { id: "alibaba/qwen3.5-plus", label: "Qwen 3.5 Plus" },
+  { id: "mistral/mistral-large-3", label: "Mistral Large 3", supportsPdf: true, imageFormat: "standard" },
+  { id: "google/gemini-3-flash", label: "Gemini 3 Flash", supportsPdf: true, imageFormat: "standard" },
+  { id: "mistral/pixtral-large", label: "Pixtral Large", supportsPdf: true, imageFormat: "standard" },
+  { id: "alibaba/qwen3.5-plus", label: "Qwen 3.5 Plus", supportsPdf: false, imageFormat: "url" },
 ] as const
 
 function calculateCost(modelId: string, usage: TokenUsage): CostBreakdown {
@@ -110,29 +110,51 @@ export async function POST(req: Request) {
     // Convert file to base64
     const bytes = await file.arrayBuffer()
     const base64 = Buffer.from(bytes).toString("base64")
+    const isPdf = file.type === "application/pdf"
+    const dataUrl = `data:${file.type};base64,${base64}`
 
-    // Prepare the message content for both models
-    const messageContent = [
-      {
-        type: "text" as const,
-        text: EXTRACTION_PROMPT,
-      },
-      file.type === "application/pdf"
+    // Run all models in parallel
+    const extractionPromises = MODELS.map(async (model): Promise<ModelResult> => {
+      const startTime = Date.now()
+      
+      // Skip models that don't support PDF when file is PDF
+      if (isPdf && !model.supportsPdf) {
+        return {
+          model: model.id,
+          modelLabel: model.label,
+          success: false,
+          data: null,
+          error: "Questo modello non supporta i file PDF. Carica un'immagine per usare questo modello.",
+          processingTime: Date.now() - startTime,
+        }
+      }
+
+      // Build message content based on model capabilities
+      const fileContent = isPdf
         ? {
             type: "file" as const,
             data: base64,
             mediaType: "application/pdf" as const,
             filename: file.name,
           }
-        : {
-            type: "image" as const,
-            image: `data:${file.type};base64,${base64}`,
-          },
-    ]
+        : model.imageFormat === "url"
+          ? {
+              type: "image_url" as const,
+              image_url: { url: dataUrl },
+            }
+          : {
+              type: "image" as const,
+              image: dataUrl,
+            }
 
-    // Run all models in parallel
-    const extractionPromises = MODELS.map(async (model): Promise<ModelResult> => {
-      const startTime = Date.now()
+      const messageContent = [
+        {
+          type: "text" as const,
+          text: EXTRACTION_PROMPT,
+        },
+        fileContent,
+      ]
+
       try {
         const { output, usage } = await generateText({
           model: model.id,

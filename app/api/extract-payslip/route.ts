@@ -1,13 +1,33 @@
 import { generateText, Output } from "ai"
-import { payslipDataSchema, ModelResult } from "@/lib/payslip-types"
+import { payslipDataSchema, ModelResult, TokenUsage, CostBreakdown } from "@/lib/payslip-types"
 
 export const maxDuration = 120
+
+// Model pricing per million tokens (USD)
+// Prices as of March 2026 from AI Gateway
+const MODEL_PRICING: Record<string, { input: number; output: number }> = {
+  "mistral/mistral-large-3": { input: 0.50, output: 1.50 },
+  "google/gemini-3-flash": { input: 0.50, output: 3.00 },
+  "mistral/pixtral-large": { input: 2.00, output: 6.00 },
+}
 
 const MODELS = [
   { id: "mistral/mistral-large-3", label: "Mistral Large 3" },
   { id: "google/gemini-3-flash", label: "Gemini 3 Flash" },
   { id: "mistral/pixtral-large", label: "Pixtral Large" },
 ] as const
+
+function calculateCost(modelId: string, usage: TokenUsage): CostBreakdown {
+  const pricing = MODEL_PRICING[modelId] || { input: 0, output: 0 }
+  const inputCost = (usage.inputTokens / 1_000_000) * pricing.input
+  const outputCost = (usage.outputTokens / 1_000_000) * pricing.output
+  return {
+    inputCost,
+    outputCost,
+    totalCost: inputCost + outputCost,
+    currency: "USD",
+  }
+}
 
 const EXTRACTION_PROMPT = `You are an expert in Italian payroll systems and payslip (busta paga) analysis. 
 Extract all available information from this Italian payslip document accurately.
@@ -108,11 +128,11 @@ export async function POST(req: Request) {
           },
     ]
 
-    // Run both models in parallel
+    // Run all models in parallel
     const extractionPromises = MODELS.map(async (model): Promise<ModelResult> => {
       const startTime = Date.now()
       try {
-        const { output } = await generateText({
+        const { output, usage } = await generateText({
           model: model.id,
           output: Output.object({
             schema: payslipDataSchema,
@@ -125,12 +145,23 @@ export async function POST(req: Request) {
           ],
         })
 
+        const tokenUsage: TokenUsage = {
+          inputTokens: usage.inputTokens || 0,
+          outputTokens: usage.outputTokens || 0,
+          totalTokens: usage.totalTokens || 0,
+          cachedInputTokens: usage.inputTokenDetails?.cacheReadTokens,
+        }
+
+        const cost = calculateCost(model.id, tokenUsage)
+
         return {
           model: model.id,
           modelLabel: model.label,
           success: true,
           data: output,
           processingTime: Date.now() - startTime,
+          usage: tokenUsage,
+          cost,
         }
       } catch (error) {
         return {

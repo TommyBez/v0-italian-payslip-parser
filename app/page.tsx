@@ -9,7 +9,7 @@ import { FeatureCards } from "@/components/payslip/feature-cards"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { FileDown, RefreshCw, FileText, Clock, CheckCircle2, XCircle } from "lucide-react"
+import { FileDown, RefreshCw, FileText, Clock, CheckCircle2, XCircle, Coins, Zap } from "lucide-react"
 import type { ModelResult, ExtractionResult } from "@/lib/payslip-types"
 
 type AppState = "idle" | "processing" | "success" | "error"
@@ -167,16 +167,65 @@ export default function PayslipExtractor() {
                   <TabsContent key={result.model} value={result.model} className="mt-6">
                     {result.success && result.data ? (
                       <div className="space-y-6">
-                        {/* Processing Time Badge */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Clock className="h-4 w-4" />
-                            Elaborato in {((result.processingTime || 0) / 1000).toFixed(1)} secondi
+                        {/* Stats Cards */}
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                          {/* Processing Time */}
+                          <div className="rounded-lg border bg-card p-3">
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Clock className="h-3.5 w-3.5" />
+                              Tempo
+                            </div>
+                            <p className="mt-1 text-lg font-semibold">
+                              {((result.processingTime || 0) / 1000).toFixed(1)}s
+                            </p>
                           </div>
+                          
+                          {/* Token Usage */}
+                          {result.usage && (
+                            <div className="rounded-lg border bg-card p-3">
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <Zap className="h-3.5 w-3.5" />
+                                Token
+                              </div>
+                              <p className="mt-1 text-lg font-semibold">
+                                {result.usage.totalTokens.toLocaleString("it-IT")}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {result.usage.inputTokens.toLocaleString("it-IT")} in / {result.usage.outputTokens.toLocaleString("it-IT")} out
+                              </p>
+                            </div>
+                          )}
+                          
+                          {/* Cost */}
+                          {result.cost && (
+                            <div className="rounded-lg border bg-card p-3">
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <Coins className="h-3.5 w-3.5" />
+                                Costo
+                              </div>
+                              <p className="mt-1 text-lg font-semibold">
+                                ${result.cost.totalCost.toFixed(4)}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                ${result.cost.inputCost.toFixed(4)} + ${result.cost.outputCost.toFixed(4)}
+                              </p>
+                            </div>
+                          )}
+                          
+                          {/* Confidence */}
                           {result.data.confidenza && (
-                            <Badge variant={result.data.confidenza >= 80 ? "default" : "secondary"}>
-                              Confidenza: {result.data.confidenza}%
-                            </Badge>
+                            <div className="rounded-lg border bg-card p-3">
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                Confidenza
+                              </div>
+                              <p className={`mt-1 text-lg font-semibold ${
+                                result.data.confidenza >= 80 ? "text-green-600" : 
+                                result.data.confidenza >= 60 ? "text-yellow-600" : "text-red-600"
+                              }`}>
+                                {result.data.confidenza}%
+                              </p>
+                            </div>
                           )}
                         </div>
                         

@@ -68,23 +68,27 @@ async function extractWithMistralOCR(
   try {
     const client = new Mistral({ apiKey })
     
-    // Convert base64 to Buffer for file upload
+    // Convert base64 to Blob for file upload
     const fileBuffer = Buffer.from(base64, "base64")
     const fileName = isPdf ? "document.pdf" : "image." + mimeType.split("/")[1]
+    const fileBlob = new Blob([fileBuffer], { type: mimeType })
+    
+    console.log("[v0] Mistral OCR - Uploading file:", fileName, "size:", fileBuffer.length)
     
     // Upload file to Mistral cloud first (required for large files)
     const uploadedFile = await client.files.upload({
-      file: {
-        fileName,
-        content: fileBuffer,
-      },
+      file: fileBlob,
       purpose: "ocr",
     })
+    
+    console.log("[v0] Mistral OCR - File uploaded, id:", uploadedFile.id)
     
     // Get signed URL for the uploaded file
     const signedUrl = await client.files.getSignedUrl({
       fileId: uploadedFile.id,
     })
+    
+    console.log("[v0] Mistral OCR - Got signed URL")
     
     // OCR the document using the signed URL
     const document = isPdf 
@@ -96,6 +100,8 @@ async function extractWithMistralOCR(
       document,
       includeImageBase64: false,
     })
+    
+    console.log("[v0] Mistral OCR - OCR completed, pages:", ocrResponse.pages?.length)
     
     // Clean up: delete the uploaded file
     await client.files.delete({ fileId: uploadedFile.id }).catch(() => {})
@@ -169,6 +175,14 @@ Return the data as a valid JSON object matching this schema:
       cost,
     }
   } catch (error) {
+    console.log("[v0] Mistral OCR - ERROR:", error instanceof Error ? error.message : String(error))
+    if (error && typeof error === "object" && "statusCode" in error) {
+      console.log("[v0] Mistral OCR - Status code:", (error as { statusCode: number }).statusCode)
+    }
+    if (error && typeof error === "object" && "body" in error) {
+      console.log("[v0] Mistral OCR - Body:", (error as { body: string }).body)
+    }
+    
     return {
       model: MISTRAL_OCR_MODEL.id,
       modelLabel: MISTRAL_OCR_MODEL.label,

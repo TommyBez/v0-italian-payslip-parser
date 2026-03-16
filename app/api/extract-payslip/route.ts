@@ -71,16 +71,25 @@ async function extractWithMistralOCR(
     // OCR the document - use base64 data URL format
     const dataUrl = `data:${mimeType};base64,${base64}`
     
+    console.log("[v0] Mistral OCR - isPdf:", isPdf)
+    console.log("[v0] Mistral OCR - mimeType:", mimeType)
+    console.log("[v0] Mistral OCR - base64 length:", base64.length)
+    console.log("[v0] Mistral OCR - dataUrl prefix:", dataUrl.substring(0, 50))
+    
     // Mistral OCR accepts document_url for PDFs and image_url for images
     const document = isPdf 
       ? { type: "document_url" as const, documentUrl: dataUrl }
       : { type: "image_url" as const, imageUrl: dataUrl }
+    
+    console.log("[v0] Mistral OCR - document type:", document.type)
     
     const ocrResponse = await client.ocr.process({
       model: "mistral-ocr-latest",
       document,
       includeImageBase64: false,
     })
+    
+    console.log("[v0] Mistral OCR - ocrResponse pages count:", ocrResponse.pages?.length)
 
     // Combine all pages markdown
     const fullMarkdown = ocrResponse.pages
@@ -151,6 +160,11 @@ Return the data as a valid JSON object matching this schema:
       cost,
     }
   } catch (error) {
+    console.log("[v0] Mistral OCR - ERROR:", error)
+    console.log("[v0] Mistral OCR - Error type:", typeof error)
+    console.log("[v0] Mistral OCR - Error message:", error instanceof Error ? error.message : String(error))
+    console.log("[v0] Mistral OCR - Full error:", JSON.stringify(error, null, 2))
+    
     return {
       model: MISTRAL_OCR_MODEL.id,
       modelLabel: MISTRAL_OCR_MODEL.label,

@@ -68,45 +68,21 @@ async function extractWithMistralOCR(
   try {
     const client = new Mistral({ apiKey })
     
-    // Convert base64 to File object for upload
-    const fileBuffer = Buffer.from(base64, "base64")
-    const fileName = isPdf ? "document.pdf" : "image." + mimeType.split("/")[1]
+    // Create data URL for OCR
+    const dataUrl = `data:${mimeType};base64,${base64}`
     
-    // Create a File object (required by Mistral SDK)
-    const file = new File([fileBuffer], fileName, { type: mimeType })
+    console.log("[v0] Mistral OCR - Processing, isPdf:", isPdf, "mimeType:", mimeType)
     
-    console.log("[v0] Mistral OCR - Uploading file:", fileName, "size:", fileBuffer.length, "type:", mimeType)
-    
-    // Upload file to Mistral cloud first (required for large files)
-    const uploadedFile = await client.files.upload({
-      file: file,
-      purpose: "ocr",
-    })
-    
-    console.log("[v0] Mistral OCR - File uploaded, id:", uploadedFile.id)
-    
-    // Get signed URL for the uploaded file
-    const signedUrl = await client.files.getSignedUrl({
-      fileId: uploadedFile.id,
-    })
-    
-    console.log("[v0] Mistral OCR - Got signed URL")
-    
-    // OCR the document using the signed URL
-    const document = isPdf 
-      ? { type: "document_url" as const, documentUrl: signedUrl.url }
-      : { type: "image_url" as const, imageUrl: signedUrl.url }
-    
+    // OCR the document directly with base64 data URL
     const ocrResponse = await client.ocr.process({
       model: "mistral-ocr-latest",
-      document,
-      includeImageBase64: false,
+      document: isPdf
+        ? { type: "document_url", documentUrl: dataUrl }
+        : { type: "image_url", imageUrl: dataUrl },
+      includeImageBase64: true,
     })
     
     console.log("[v0] Mistral OCR - OCR completed, pages:", ocrResponse.pages?.length)
-    
-    // Clean up: delete the uploaded file
-    await client.files.delete({ fileId: uploadedFile.id }).catch(() => {})
 
     // Combine all pages markdown
     const fullMarkdown = ocrResponse.pages

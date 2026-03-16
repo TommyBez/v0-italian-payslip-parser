@@ -1,5 +1,4 @@
 import { generateText, Output } from "ai"
-import { Mistral } from "@mistralai/mistralai"
 import { payslipDataSchema, ModelResult, TokenUsage, CostBreakdown } from "@/lib/payslip-types"
 
 export const maxDuration = 120
@@ -66,21 +65,41 @@ async function extractWithMistralOCR(
   }
 
   try {
-    const client = new Mistral({ apiKey })
-    
     // Create data URL for OCR
     const dataUrl = `data:${mimeType};base64,${base64}`
     
     console.log("[v0] Mistral OCR - Processing, isPdf:", isPdf, "mimeType:", mimeType)
     
-    // OCR the document directly with base64 data URL
-    const ocrResponse = await client.ocr.process({
+    // Call Mistral OCR API directly with fetch (SDK has Content-Length bug with large payloads)
+    const ocrRequestBody = JSON.stringify({
       model: "mistral-ocr-latest",
       document: isPdf
-        ? { type: "document_url", documentUrl: dataUrl }
-        : { type: "image_url", imageUrl: dataUrl },
-      includeImageBase64: true,
+        ? { type: "document_url", document_url: dataUrl }
+        : { type: "image_url", image_url: dataUrl },
+      include_image_base64: false,
     })
+    
+    console.log("[v0] Mistral OCR - Request body length:", ocrRequestBody.length)
+    
+    const ocrFetchResponse = await fetch("https://api.mistral.ai/v1/ocr", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Length": Buffer.byteLength(ocrRequestBody).toString(),
+      },
+      body: ocrRequestBody,
+    })
+    
+    console.log("[v0] Mistral OCR - Response status:", ocrFetchResponse.status)
+    
+    if (!ocrFetchResponse.ok) {
+      const errorText = await ocrFetchResponse.text()
+      console.log("[v0] Mistral OCR - Error response:", errorText)
+      throw new Error(`OCR API error: ${ocrFetchResponse.status} - ${errorText}`)
+    }
+    
+    const ocrResponse = await ocrFetchResponse.json()
     
     console.log("[v0] Mistral OCR - OCR completed, pages:", ocrResponse.pages?.length)
 
@@ -92,9 +111,9 @@ async function extractWithMistralOCR(
     const pagesProcessed = ocrResponse.pages.length
 
     // Now use Mistral chat to extract structured data from the OCR text
-    const chatResponse = await client.chat.complete({
+    const chatRequestBody = JSON.stringify({
       model: "mistral-large-latest",
-      responseFormat: { type: "json_object" },
+      response_format: { type: "json_object" },
       messages: [
         {
           role: "system",
@@ -122,6 +141,22 @@ Return the data as a valid JSON object matching this schema:
       ],
     })
 
+    const chatFetchResponse = await fetch("https://api.mistral.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: chatRequestBody,
+    })
+
+    if (!chatFetchResponse.ok) {
+      const errorText = await chatFetchResponse.text()
+      console.log("[v0] Mistral Chat - Error response:", errorText)
+      throw new Error(`Chat API error: ${chatFetchResponse.status} - ${errorText}`)
+    }
+
+    const chatResponse = await chatFetchResponse.json()
     const content = chatResponse.choices?.[0]?.message?.content
     if (!content || typeof content !== "string") {
       throw new Error("No response from Mistral chat")

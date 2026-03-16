@@ -68,14 +68,17 @@ async function extractWithMistralOCR(
   try {
     const client = new Mistral({ apiKey })
     
-    // OCR the document
+    // OCR the document - use base64 data URL format
     const dataUrl = `data:${mimeType};base64,${base64}`
+    
+    // Mistral OCR accepts document_url for PDFs and image_url for images
+    const document = isPdf 
+      ? { type: "document_url" as const, documentUrl: dataUrl }
+      : { type: "image_url" as const, imageUrl: dataUrl }
     
     const ocrResponse = await client.ocr.process({
       model: "mistral-ocr-latest",
-      document: isPdf 
-        ? { type: "document_url", documentUrl: dataUrl }
-        : { type: "image_url", imageUrl: dataUrl },
+      document,
       includeImageBase64: false,
     })
 

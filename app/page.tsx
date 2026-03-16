@@ -180,19 +180,27 @@ export default function PayslipExtractor() {
                             </p>
                           </div>
                           
-                          {/* Token Usage */}
+                          {/* Token Usage / Pages for OCR */}
                           {result.usage && (
                             <div className="rounded-lg border bg-card p-3">
                               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                 <Zap className="h-3.5 w-3.5" />
-                                Token
+                                {result.model === "mistral-ocr-latest" ? "Pagine" : "Token"}
                               </div>
-                              <p className="mt-1 text-lg font-semibold">
-                                {result.usage.totalTokens.toLocaleString("it-IT")}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {result.usage.inputTokens.toLocaleString("it-IT")} in / {result.usage.outputTokens.toLocaleString("it-IT")} out
-                              </p>
+                              {result.model === "mistral-ocr-latest" ? (
+                                <p className="mt-1 text-lg font-semibold">
+                                  {result.usage.inputTokens} {result.usage.inputTokens === 1 ? "pagina" : "pagine"}
+                                </p>
+                              ) : (
+                                <>
+                                  <p className="mt-1 text-lg font-semibold">
+                                    {result.usage.totalTokens.toLocaleString("it-IT")}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {result.usage.inputTokens.toLocaleString("it-IT")} in / {result.usage.outputTokens.toLocaleString("it-IT")} out
+                                  </p>
+                                </>
+                              )}
                             </div>
                           )}
                           
@@ -287,7 +295,7 @@ export default function PayslipExtractor() {
       <footer className="mt-auto border-t bg-muted/30 py-6">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
           <p>
-            Powered by <strong>Mistral</strong>, <strong>Gemini</strong> e <strong>Pixtral</strong> via Vercel AI Gateway
+            Powered by <strong>Mistral OCR</strong>, <strong>Gemini</strong> e <strong>Pixtral</strong>
           </p>
           <p className="mt-1">
             I tuoi dati non vengono mai salvati. Elaborazione conforme al GDPR.

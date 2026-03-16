@@ -1,26 +1,42 @@
 import { generateText, Output } from "ai"
+import { Mistral } from "@mistralai/mistralai"
 import { payslipDataSchema, ModelResult, TokenUsage, CostBreakdown } from "@/lib/payslip-types"
 
 export const maxDuration = 120
 
 // Model pricing per million tokens (USD)
-// Prices as of March 2026 from AI Gateway
-const MODEL_PRICING: Record<string, { input: number; output: number }> = {
-  "mistral/mistral-large-3": { input: 0.50, output: 1.50 },
+// Prices as of March 2026
+const MODEL_PRICING: Record<string, { input: number; output: number; perPage?: number }> = {
+  "mistral-ocr-latest": { input: 0, output: 0, perPage: 0.10 }, // $0.10 per page for OCR
   "google/gemini-3-flash": { input: 0.50, output: 3.00 },
   "google/gemini-3.1-flash-lite-preview": { input: 0.25, output: 1.50 },
   "mistral/pixtral-large": { input: 2.00, output: 6.00 },
 }
 
-const MODELS = [
-  { id: "mistral/mistral-large-3", label: "Mistral Large 3" },
+// AI SDK models (use Vercel AI Gateway)
+const AI_SDK_MODELS = [
   { id: "google/gemini-3-flash", label: "Gemini 3 Flash" },
   { id: "google/gemini-3.1-flash-lite-preview", label: "Gemini 3.1 Flash Lite" },
   { id: "mistral/pixtral-large", label: "Pixtral Large" },
 ] as const
 
-function calculateCost(modelId: string, usage: TokenUsage): CostBreakdown {
+// Mistral OCR model (uses Mistral SDK directly)
+const MISTRAL_OCR_MODEL = { id: "mistral-ocr-latest", label: "Mistral OCR" }
+
+function calculateCost(modelId: string, usage: TokenUsage, pagesProcessed?: number): CostBreakdown {
   const pricing = MODEL_PRICING[modelId] || { input: 0, output: 0 }
+  
+  // For OCR models, cost is per page
+  if (pricing.perPage && pagesProcessed) {
+    const totalCost = pagesProcessed * pricing.perPage
+    return {
+      inputCost: totalCost,
+      outputCost: 0,
+      totalCost,
+      currency: "USD",
+    }
+  }
+  
   const inputCost = (usage.inputTokens / 1_000_000) * pricing.input
   const outputCost = (usage.outputTokens / 1_000_000) * pricing.output
   return {
@@ -28,6 +44,120 @@ function calculateCost(modelId: string, usage: TokenUsage): CostBreakdown {
     outputCost,
     totalCost: inputCost + outputCost,
     currency: "USD",
+  }
+}
+
+// Mistral OCR extraction function
+async function extractWithMistralOCR(
+  base64: string,
+  isPdf: boolean,
+  mimeType: string
+): Promise<ModelResult> {
+  const startTime = Date.now()
+  
+  const apiKey = process.env.MISTRAL_API_KEY
+  if (!apiKey) {
+    return {
+      model: MISTRAL_OCR_MODEL.id,
+      modelLabel: MISTRAL_OCR_MODEL.label,
+      success: false,
+      data: null,
+      error: "MISTRAL_API_KEY non configurata",
+      processingTime: Date.now() - startTime,
+    }
+  }
+
+  try {
+    const client = new Mistral({ apiKey })
+    
+    // OCR the document
+    const dataUrl = `data:${mimeType};base64,${base64}`
+    
+    const ocrResponse = await client.ocr.process({
+      model: "mistral-ocr-latest",
+      document: isPdf 
+        ? { type: "document_url", documentUrl: dataUrl }
+        : { type: "image_url", imageUrl: dataUrl },
+      includeImageBase64: false,
+    })
+
+    // Combine all pages markdown
+    const fullMarkdown = ocrResponse.pages
+      .map((page) => page.markdown)
+      .join("\n\n---\n\n")
+
+    const pagesProcessed = ocrResponse.pages.length
+
+    // Now use Mistral chat to extract structured data from the OCR text
+    const chatResponse = await client.chat.complete({
+      model: "mistral-large-latest",
+      responseFormat: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert in Italian payroll systems. Extract structured data from the following OCR text of an Italian payslip (busta paga).
+          
+${EXTRACTION_PROMPT}
+
+Return the data as a valid JSON object matching this schema:
+- periodo: { mese: string, anno: number }
+- dipendente: { nome, cognome, codiceFiscale, dataNascita, indirizzo, matricola, dataAssunzione, livello, qualifica, ccnl }
+- azienda: { ragioneSociale, partitaIva, codiceFiscale, indirizzo, inps, inail }
+- retribuzione: { stipendioBase, contingenza, scattiAnzianita, superminimo, totaleCompetenze, vociRetributive[] }
+- detrazioni: { contributiInps, irpefLorda, detrazioniLavoro, detrazioniFamiliari, addizionaleRegionale, addizionaleComunale, altreDetrazioni, totaleRitenute, deduzioni[] }
+- netto: { importo, modalitaPagamento, iban }
+- tfr: { quotaMensile, totaleAccantonato }
+- fpiPermessi: { ferieMaturate, ferieGodute, ferieResiduo, permessiMaturati, permessiGoduti, permessiResiduo, rolMaturato, rolGoduto, rolResiduo }
+- oreLavoro: { ordinarie, straordinario, notturne, festive, malattia, ferie, permessi }
+- note: string | null
+- confidenza: number (0-100)`,
+        },
+        {
+          role: "user",
+          content: `Ecco il testo OCR della busta paga:\n\n${fullMarkdown}`,
+        },
+      ],
+    })
+
+    const content = chatResponse.choices?.[0]?.message?.content
+    if (!content || typeof content !== "string") {
+      throw new Error("No response from Mistral chat")
+    }
+
+    const extractedData = JSON.parse(content)
+    const validatedData = payslipDataSchema.parse(extractedData)
+
+    // Calculate usage from chat response
+    const tokenUsage: TokenUsage = {
+      inputTokens: chatResponse.usage?.promptTokens || 0,
+      outputTokens: chatResponse.usage?.completionTokens || 0,
+      totalTokens: chatResponse.usage?.totalTokens || 0,
+    }
+
+    const cost = calculateCost(MISTRAL_OCR_MODEL.id, tokenUsage, pagesProcessed)
+
+    return {
+      model: MISTRAL_OCR_MODEL.id,
+      modelLabel: MISTRAL_OCR_MODEL.label,
+      success: true,
+      data: validatedData,
+      processingTime: Date.now() - startTime,
+      usage: {
+        ...tokenUsage,
+        // Add pages info to usage for display
+        inputTokens: pagesProcessed, // Repurpose for pages count in OCR
+      },
+      cost,
+    }
+  } catch (error) {
+    return {
+      model: MISTRAL_OCR_MODEL.id,
+      modelLabel: MISTRAL_OCR_MODEL.label,
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : "OCR extraction failed",
+      processingTime: Date.now() - startTime,
+    }
   }
 }
 
@@ -113,8 +243,8 @@ export async function POST(req: Request) {
     const isPdf = file.type === "application/pdf"
     const dataUrl = `data:${file.type};base64,${base64}`
 
-    // Run all models in parallel
-    const extractionPromises = MODELS.map(async (model): Promise<ModelResult> => {
+    // Run all models in parallel (AI SDK models + Mistral OCR)
+    const aiSdkPromises = AI_SDK_MODELS.map(async (model): Promise<ModelResult> => {
       const startTime = Date.now()
 
       // Build message content based on file type
@@ -188,7 +318,16 @@ export async function POST(req: Request) {
       }
     })
 
-    const results = await Promise.all(extractionPromises)
+    // Add Mistral OCR extraction
+    const mistralOcrPromise = extractWithMistralOCR(base64, isPdf, file.type)
+
+    // Wait for all extractions
+    const [mistralOcrResult, ...aiSdkResults] = await Promise.all([
+      mistralOcrPromise,
+      ...aiSdkPromises,
+    ])
+
+    const results = [mistralOcrResult, ...aiSdkResults]
 
     return Response.json({
       success: results.some((r) => r.success),

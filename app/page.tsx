@@ -141,7 +141,7 @@ export default function PayslipExtractor() {
           {state === "success" && modelResults.length > 0 && (
             <div className="space-y-6">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
+                <TabsList className="grid w-full grid-cols-3">
                   {modelResults.map((result) => (
                     <TabsTrigger
                       key={result.model}
@@ -295,7 +295,7 @@ export default function PayslipExtractor() {
       <footer className="mt-auto border-t bg-muted/30 py-6">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
           <p>
-            Powered by <strong>Mistral OCR</strong>, <strong>Gemini</strong> e <strong>Pixtral</strong>
+            Powered by <strong>Mistral OCR</strong> e <strong>Gemini</strong>
           </p>
           <p className="mt-1">
             I tuoi dati non vengono mai salvati. Elaborazione conforme al GDPR.

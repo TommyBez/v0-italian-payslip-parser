@@ -10,14 +10,12 @@ const MODEL_PRICING: Record<string, { input: number; output: number; perPage?: n
   "mistral-ocr-latest": { input: 0, output: 0, perPage: 0.10 }, // $0.10 per page for OCR
   "google/gemini-3-flash": { input: 0.50, output: 3.00 },
   "google/gemini-3.1-flash-lite-preview": { input: 0.25, output: 1.50 },
-  "mistral/pixtral-large": { input: 2.00, output: 6.00 },
 }
 
 // AI SDK models (use Vercel AI Gateway)
 const AI_SDK_MODELS = [
   { id: "google/gemini-3-flash", label: "Gemini 3 Flash" },
   { id: "google/gemini-3.1-flash-lite-preview", label: "Gemini 3.1 Flash Lite" },
-  { id: "mistral/pixtral-large", label: "Pixtral Large" },
 ] as const
 
 // Mistral OCR model (uses Mistral SDK directly)

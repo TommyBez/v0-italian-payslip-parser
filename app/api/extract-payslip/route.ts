@@ -68,16 +68,18 @@ async function extractWithMistralOCR(
   try {
     const client = new Mistral({ apiKey })
     
-    // Convert base64 to Blob for file upload
+    // Convert base64 to File object for upload
     const fileBuffer = Buffer.from(base64, "base64")
     const fileName = isPdf ? "document.pdf" : "image." + mimeType.split("/")[1]
-    const fileBlob = new Blob([fileBuffer], { type: mimeType })
     
-    console.log("[v0] Mistral OCR - Uploading file:", fileName, "size:", fileBuffer.length)
+    // Create a File object (required by Mistral SDK)
+    const file = new File([fileBuffer], fileName, { type: mimeType })
+    
+    console.log("[v0] Mistral OCR - Uploading file:", fileName, "size:", fileBuffer.length, "type:", mimeType)
     
     // Upload file to Mistral cloud first (required for large files)
     const uploadedFile = await client.files.upload({
-      file: fileBlob,
+      file: file,
       purpose: "ocr",
     })
     

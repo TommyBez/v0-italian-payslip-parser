@@ -62,12 +62,51 @@ function extractMessageText(
     .join("")
 }
 
+function injectExtractedTables(
+  markdown: string,
+  tables?: Array<{
+    id: string
+    content: string
+  }>
+) {
+  if (!tables?.length) {
+    return markdown
+  }
+
+  let nextMarkdown = markdown
+  const unmatchedTables: string[] = []
+
+  for (const table of tables) {
+    const placeholderPattern = new RegExp(
+      String.raw`\[${table.id}\.(?:md|markdown|html)\]\(${table.id}\.(?:md|markdown|html)\)`,
+      "g"
+    )
+
+    if (placeholderPattern.test(nextMarkdown)) {
+      nextMarkdown = nextMarkdown.replace(placeholderPattern, table.content)
+      continue
+    }
+
+    unmatchedTables.push(table.content)
+  }
+
+  if (unmatchedTables.length === 0) {
+    return nextMarkdown
+  }
+
+  return [nextMarkdown, "Extracted tables:", ...unmatchedTables].join("\n\n")
+}
+
 function buildOcrMarkdownDocument(ocrResponse: {
   pages: Array<{
     index: number
     markdown: string
     header?: string | null
     footer?: string | null
+    tables?: Array<{
+      id: string
+      content: string
+    }>
   }>
 }) {
   return ocrResponse.pages
@@ -78,7 +117,7 @@ function buildOcrMarkdownDocument(ocrResponse: {
         parts.push(`Header:\n${page.header}`)
       }
 
-      parts.push(page.markdown)
+      parts.push(injectExtractedTables(page.markdown, page.tables))
 
       if (page.footer) {
         parts.push(`Footer:\n${page.footer}`)
@@ -121,9 +160,11 @@ export async function extractPayslipFromFile(file: File): Promise<ExtractionResu
       },
       extractHeader: true,
       extractFooter: true,
+      tableFormat: 'markdown'
     })
 
     console.log("ocrResponse", ocrResponse)
+    console.log("ocrResponse.tables", ocrResponse.pages[0].tables)
     const ocrMarkdown = buildOcrMarkdownDocument(ocrResponse)
     console.log("ocrMarkdown", ocrMarkdown)
 

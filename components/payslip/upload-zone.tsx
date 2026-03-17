@@ -4,6 +4,12 @@ import { useCallback, useState } from "react"
 import { Upload, FileText, Image, X, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import {
+  INVALID_PAYSLIP_FILE_ALERT,
+  SUPPORTED_PAYSLIP_ACCEPT,
+  SUPPORTED_PAYSLIP_FORMATS_LABEL,
+} from "@/lib/payslip-extraction/config"
+import { isSupportedPayslipMimeType } from "@/lib/payslip-extraction/input"
 
 interface UploadZoneProps {
   onFileSelect: (file: File) => void
@@ -54,16 +60,8 @@ export function UploadZone({
   )
 
   const handleFile = (file: File) => {
-    const allowedTypes = [
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-      "image/gif",
-      "application/pdf",
-    ]
-    
-    if (!allowedTypes.includes(file.type)) {
-      alert("Per favore carica un'immagine (JPG, PNG, WebP, GIF) o un PDF")
+    if (!isSupportedPayslipMimeType(file.type)) {
+      alert(INVALID_PAYSLIP_FILE_ALERT)
       return
     }
 
@@ -146,7 +144,7 @@ export function UploadZone({
     >
       <input
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+        accept={SUPPORTED_PAYSLIP_ACCEPT}
         onChange={handleFileInput}
         className="absolute inset-0 cursor-pointer opacity-0"
         aria-label="Carica busta paga"
@@ -164,7 +162,7 @@ export function UploadZone({
           oppure clicca per selezionare un file
         </p>
         <p className="mt-2 text-xs text-muted-foreground">
-          Formati supportati: JPG, PNG, WebP, GIF, PDF
+          Formati supportati: {SUPPORTED_PAYSLIP_FORMATS_LABEL}
         </p>
       </div>
     </div>

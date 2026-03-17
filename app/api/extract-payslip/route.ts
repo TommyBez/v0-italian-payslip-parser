@@ -156,6 +156,13 @@ export async function POST(req: Request) {
               content: messageContent,
             },
           ],
+          ...(model.id === "google/gemini-3-flash" && {
+            providerOptions: {
+              gateway: {
+                only: ['vertex'],
+              },
+            },
+          }),
         })
 
         const tokenUsage: TokenUsage = {

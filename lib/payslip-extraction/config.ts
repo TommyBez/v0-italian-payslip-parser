@@ -17,7 +17,6 @@ export const INVALID_PAYSLIP_FILE_ALERT =
   "Per favore carica un'immagine (JPG, PNG, WebP, GIF) o un PDF"
 
 export const MISTRAL_OCR_MODEL = "mistral-ocr-latest"
-export const MISTRAL_EXTRACTION_MODEL = "mistral-large-latest"
 
 export const MISTRAL_PIPELINE_MODEL_ID = "mistral-ocr-pipeline"
 export const MISTRAL_PIPELINE_LABEL = "Mistral OCR Pipeline"

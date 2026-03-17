@@ -139,34 +139,46 @@ function buildFailedResult(error: unknown, processingTime: number): ModelResult 
   }
 }
 
+async function fileToBase64(file: File) {
+  const bytes = await file.arrayBuffer()
+  return Buffer.from(bytes).toString("base64")
+}
+
+async function buildOcrDocumentPayload(file: File) {
+  const base64 = await fileToBase64(file)
+  const dataUrl = `data:${file.type};base64,${base64}`
+
+  if (file.type === "application/pdf") {
+    return {
+      type: "document_url" as const,
+      documentUrl: dataUrl,
+      documentName: file.name,
+    }
+  }
+
+  return {
+    type: "image_url" as const,
+    imageUrl: dataUrl,
+  }
+}
+
 export async function extractPayslipFromFile(file: File): Promise<ExtractionResult> {
   const validFile = validatePayslipFile(file)
   const client = getMistralClient()
   const startTime = Date.now()
-  let uploadedFileId: string | null = null
 
   try {
-    const uploadedFile = await client.files.upload({
-      file: validFile,
-      purpose: "ocr",
-    })
-    uploadedFileId = uploadedFile.id
+    const document = await buildOcrDocumentPayload(validFile)
 
     const ocrResponse = await client.ocr.process({
       model: MISTRAL_OCR_MODEL,
-      document: {
-        type: "file",
-        fileId: uploadedFileId,
-      },
+      document,
       extractHeader: true,
       extractFooter: true,
-      tableFormat: 'markdown'
+      tableFormat: "markdown",
     })
 
-    console.log("ocrResponse", ocrResponse)
-    console.log("ocrResponse.tables", ocrResponse.pages[0].tables)
     const ocrMarkdown = buildOcrMarkdownDocument(ocrResponse)
-    console.log("ocrMarkdown", ocrMarkdown)
 
     const chatResponse = await client.chat.complete({
       model: MISTRAL_EXTRACTION_MODEL,
@@ -217,14 +229,6 @@ export async function extractPayslipFromFile(file: File): Promise<ExtractionResu
     return {
       success: false,
       results: [buildFailedResult(error, Date.now() - startTime)],
-    }
-  } finally {
-    if (uploadedFileId) {
-      try {
-        await client.files.delete({ fileId: uploadedFileId })
-      } catch (cleanupError) {
-        console.warn("Failed to delete uploaded Mistral file", cleanupError)
-      }
     }
   }
 }

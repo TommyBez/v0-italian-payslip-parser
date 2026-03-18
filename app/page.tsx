@@ -102,7 +102,7 @@ export default function PayslipExtractor() {
           {state === "success" && modelResults.length > 0 && (
             <Badge variant="secondary" className="gap-1.5">
               <CheckCircle2 className="h-3.5 w-3.5" />
-              {modelResults.filter((r) => r.success).length}/{modelResults.length} modelli
+              {modelResults.filter((r) => r.success).length}/{modelResults.length} pipeline
             </Badge>
           )}
         </div>
@@ -287,7 +287,7 @@ export default function PayslipExtractor() {
       <footer className="mt-auto border-t bg-muted/30 py-6">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
           <p>
-            Powered by <strong>Mistral</strong>, <strong>Gemini</strong> e <strong>Pixtral</strong> via Vercel AI Gateway
+            Powered by <strong>Mistral OCR</strong> e <strong>Mistral AI SDK</strong>
           </p>
           <p className="mt-1">
             I tuoi dati non vengono mai salvati. Elaborazione conforme al GDPR.

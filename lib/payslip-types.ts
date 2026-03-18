@@ -2,106 +2,106 @@ import { z } from "zod"
 
 // Italian Payslip (Busta Paga) Schema
 export const employeeDetailsSchema = z.object({
-  nome: z.string().nullable().describe("Employee first name"),
-  cognome: z.string().nullable().describe("Employee surname"),
-  codiceFiscale: z.string().nullable().describe("Italian tax code (Codice Fiscale)"),
-  matricola: z.string().nullable().describe("Employee ID number"),
-  dataNascita: z.string().nullable().describe("Date of birth"),
-  luogoNascita: z.string().nullable().describe("Place of birth"),
-  indirizzo: z.string().nullable().describe("Address"),
-  dataAssunzione: z.string().nullable().describe("Hire date"),
-  qualifica: z.string().nullable().describe("Job qualification/title"),
-  livello: z.string().nullable().describe("Job level/grade"),
-  ccnl: z.string().nullable().describe("National collective labor agreement applied"),
+  nome: z.string().nullable().describe("Nome del dipendente cosi come riportato in busta paga."),
+  cognome: z.string().nullable().describe("Cognome del dipendente cosi come riportato in busta paga."),
+  codiceFiscale: z.string().nullable().describe("Codice fiscale del dipendente. Mantenere il formato alfanumerico esattamente come presente nel documento."),
+  matricola: z.string().nullable().describe("Matricola o identificativo interno del dipendente, se presente."),
+  dataNascita: z.string().nullable().describe("Data di nascita del dipendente, mantenendo il formato testuale presente nel documento."),
+  luogoNascita: z.string().nullable().describe("Luogo di nascita del dipendente, se riportato."),
+  indirizzo: z.string().nullable().describe("Indirizzo del dipendente, se riportato in busta paga."),
+  dataAssunzione: z.string().nullable().describe("Data di assunzione, mantenendo il formato testuale presente nel documento."),
+  qualifica: z.string().nullable().describe("Qualifica o mansione del dipendente indicata in busta paga."),
+  livello: z.string().nullable().describe("Livello o inquadramento contrattuale del dipendente."),
+  ccnl: z.string().nullable().describe("Contratto collettivo nazionale di lavoro applicato, se indicato."),
 })
 
 export const companyDetailsSchema = z.object({
-  ragioneSociale: z.string().nullable().describe("Company legal name"),
-  partitaIva: z.string().nullable().describe("VAT number"),
-  codiceFiscaleAzienda: z.string().nullable().describe("Company tax code"),
-  indirizzo: z.string().nullable().describe("Company address"),
-  inps: z.string().nullable().describe("INPS registration number"),
-  inail: z.string().nullable().describe("INAIL registration number"),
+  ragioneSociale: z.string().nullable().describe("Ragione sociale o denominazione dell'azienda cosi come riportata in busta paga."),
+  partitaIva: z.string().nullable().describe("Partita IVA dell'azienda. Mantenere il formato numerico esattamente come presente nel documento."),
+  codiceFiscaleAzienda: z.string().nullable().describe("Codice fiscale dell'azienda, se distinto dalla partita IVA."),
+  indirizzo: z.string().nullable().describe("Indirizzo dell'azienda riportato nel documento."),
+  inps: z.string().nullable().describe("Posizione, matricola o codice INPS dell'azienda, se presente."),
+  inail: z.string().nullable().describe("Posizione, codice o riferimento INAIL dell'azienda, se presente."),
 })
 
 export const periodSchema = z.object({
-  mese: z.string().nullable().describe("Pay period month"),
-  anno: z.string().nullable().describe("Pay period year"),
-  giorniLavorati: z.number().nullable().describe("Days worked"),
-  oreLavorate: z.number().nullable().describe("Hours worked"),
+  mese: z.string().nullable().describe("Mese di riferimento della busta paga, come indicato nel documento."),
+  anno: z.string().nullable().describe("Anno di riferimento della busta paga, come indicato nel documento."),
+  giorniLavorati: z.number().nullable().describe("Numero di giorni lavorati nel periodo. Estrarre solo il valore numerico."),
+  oreLavorate: z.number().nullable().describe("Numero di ore lavorate nel periodo. Estrarre solo il valore numerico."),
 })
 
 export const salaryComponentSchema = z.object({
-  descrizione: z.string().describe("Description of the salary component"),
-  importo: z.number().describe("Amount in EUR"),
-  tipo: z.string().nullable().describe("Type: fisso (fixed), variabile (variable), straordinario (overtime)"),
+  descrizione: z.string().describe("Descrizione della voce retributiva esattamente come appare in busta paga."),
+  importo: z.number().describe("Importo della voce retributiva. Estrarre solo il valore numerico, senza simboli o valuta."),
+  tipo: z.string().nullable().describe("Tipologia della voce retributiva, ad esempio fisso, variabile, straordinario o altra classificazione se esplicitamente deducibile dal testo."),
 })
 
 export const deductionSchema = z.object({
-  descrizione: z.string().describe("Description of the deduction"),
-  importo: z.number().describe("Amount in EUR"),
-  aliquota: z.number().nullable().describe("Rate/percentage if applicable"),
+  descrizione: z.string().describe("Descrizione della trattenuta o detrazione cosi come riportata nel documento."),
+  importo: z.number().describe("Importo della trattenuta o detrazione. Estrarre solo il valore numerico, senza simboli o valuta."),
+  aliquota: z.number().nullable().describe("Aliquota o percentuale associata alla trattenuta, se esplicitamente presente. Estrarre solo il valore numerico."),
 })
 
 export const payslipDataSchema = z.object({
-  dipendente: employeeDetailsSchema.describe("Employee personal details"),
-  azienda: companyDetailsSchema.describe("Company details"),
-  periodo: periodSchema.describe("Pay period information"),
+  dipendente: employeeDetailsSchema.describe("Dati anagrafici del dipendente riportati in busta paga."),
+  azienda: companyDetailsSchema.describe("Dati identificativi dell'azienda riportati in busta paga."),
+  periodo: periodSchema.describe("Periodo di riferimento della busta paga."),
   
-  retribuzioneLorda: z.number().nullable().describe("Gross salary (Retribuzione Lorda)"),
+  retribuzioneLorda: z.number().nullable().describe("Importo della retribuzione lorda del periodo. Estrarre solo il valore numerico, senza simboli o valuta."),
   
-  vociRetributive: z.array(salaryComponentSchema).describe("Salary components breakdown"),
+  vociRetributive: z.array(salaryComponentSchema).describe("Elenco delle voci retributive presenti in busta paga, come paga base, indennita, premi o straordinari."),
   
   contributiInps: z.object({
-    totale: z.number().nullable().describe("Total INPS contributions"),
-    aliquota: z.number().nullable().describe("INPS contribution rate"),
+    totale: z.number().nullable().describe("Totale dei contributi INPS trattenuti o indicati in busta paga. Estrarre solo il valore numerico."),
+    aliquota: z.number().nullable().describe("Aliquota contributiva INPS, se esplicitamente presente. Estrarre solo il numero o la percentuale senza simboli aggiuntivi."),
     dettaglio: z.array(z.object({
-      descrizione: z.string(),
-      importo: z.number(),
-    })).nullable().describe("Breakdown of INPS contributions"),
-  }).describe("INPS social security contributions"),
+      descrizione: z.string().describe("Descrizione della singola voce contributiva INPS cosi come appare nel documento."),
+      importo: z.number().describe("Importo della singola voce contributiva INPS. Estrarre solo il valore numerico."),
+    })).nullable().describe("Dettaglio delle singole voci di contributi INPS presenti nel documento."),
+  }).describe("Dati relativi ai contributi previdenziali INPS."),
   
   irpef: z.object({
-    imponibile: z.number().nullable().describe("Taxable income for IRPEF"),
-    imposta: z.number().nullable().describe("IRPEF tax amount"),
-    detrazioni: z.number().nullable().describe("Tax deductions applied"),
-    netto: z.number().nullable().describe("Net IRPEF after deductions"),
-  }).describe("IRPEF income tax details"),
+    imponibile: z.number().nullable().describe("Imponibile fiscale IRPEF del periodo. Estrarre solo il valore numerico."),
+    imposta: z.number().nullable().describe("Importo dell'imposta IRPEF lorda o indicata in busta paga. Estrarre solo il valore numerico."),
+    detrazioni: z.number().nullable().describe("Totale delle detrazioni IRPEF applicate, se presente. Estrarre solo il valore numerico."),
+    netto: z.number().nullable().describe("IRPEF netta dopo detrazioni, se esplicitamente riportata. Estrarre solo il valore numerico."),
+  }).describe("Dati fiscali relativi all'IRPEF."),
   
   addizionali: z.object({
-    regionale: z.number().nullable().describe("Regional tax surcharge"),
-    comunale: z.number().nullable().describe("Municipal tax surcharge"),
-  }).describe("Regional and municipal tax surcharges"),
+    regionale: z.number().nullable().describe("Importo dell'addizionale regionale IRPEF. Estrarre solo il valore numerico."),
+    comunale: z.number().nullable().describe("Importo dell'addizionale comunale IRPEF. Estrarre solo il valore numerico."),
+  }).describe("Addizionali IRPEF regionale e comunale."),
   
-  altreDetrazioni: z.array(deductionSchema).nullable().describe("Other deductions"),
+  altreDetrazioni: z.array(deductionSchema).nullable().describe("Altre trattenute o detrazioni presenti in busta paga oltre a IRPEF e contributi."),
   
   tfr: z.object({
-    accantonamento: z.number().nullable().describe("TFR accrual for the period"),
-    destinazione: z.string().nullable().describe("TFR destination (company/fund)"),
-  }).nullable().describe("Severance pay (TFR) details"),
+    accantonamento: z.number().nullable().describe("Quota TFR maturata o accantonata nel periodo. Estrarre solo il valore numerico."),
+    destinazione: z.string().nullable().describe("Destinazione del TFR, ad esempio azienda o fondo pensione, se indicata esplicitamente."),
+  }).nullable().describe("Dati relativi al trattamento di fine rapporto (TFR)."),
   
   ferie: z.object({
-    maturate: z.number().nullable().describe("Vacation days accrued"),
-    godute: z.number().nullable().describe("Vacation days used"),
-    residue: z.number().nullable().describe("Vacation days remaining"),
-  }).nullable().describe("Vacation days status"),
+    maturate: z.number().nullable().describe("Numero di ferie maturate nel periodo o nel progressivo, secondo quanto riportato nel documento."),
+    godute: z.number().nullable().describe("Numero di ferie godute o utilizzate, se presente."),
+    residue: z.number().nullable().describe("Numero di ferie residue disponibili, se presente."),
+  }).nullable().describe("Situazione ferie riportata in busta paga."),
   
   permessi: z.object({
-    maturati: z.number().nullable().describe("Leave hours accrued"),
-    goduti: z.number().nullable().describe("Leave hours used"),
-    residui: z.number().nullable().describe("Leave hours remaining"),
-  }).nullable().describe("Leave hours status"),
+    maturati: z.number().nullable().describe("Numero di ore o giorni di permessi maturati, secondo l'unita riportata nel documento."),
+    goduti: z.number().nullable().describe("Numero di ore o giorni di permessi goduti o utilizzati, se presente."),
+    residui: z.number().nullable().describe("Numero di ore o giorni di permessi residui, se presente."),
+  }).nullable().describe("Situazione permessi riportata in busta paga."),
   
-  nettoInBusta: z.number().nullable().describe("Net pay (Netto in Busta)"),
+  nettoInBusta: z.number().nullable().describe("Importo netto da corrispondere al dipendente, spesso indicato come netto in busta o netto a pagare. Estrarre solo il valore numerico."),
   
   notePagamento: z.object({
-    dataPagamento: z.string().nullable().describe("Payment date"),
-    modalitaPagamento: z.string().nullable().describe("Payment method"),
-    iban: z.string().nullable().describe("Bank IBAN (masked for privacy)"),
-  }).nullable().describe("Payment notes"),
+    dataPagamento: z.string().nullable().describe("Data di pagamento o valuta indicata nel documento, mantenendo il formato testuale presente."),
+    modalitaPagamento: z.string().nullable().describe("Modalita di pagamento indicata in busta paga, ad esempio bonifico o contanti."),
+    iban: z.string().nullable().describe("IBAN riportato nel documento. Mantenere eventuale mascheramento o formato parziale presente per privacy."),
+  }).nullable().describe("Informazioni relative al pagamento della retribuzione."),
   
-  confidenza: z.number().nullable().describe("AI confidence score 0-100"),
-  note: z.string().nullable().describe("Additional notes or warnings from extraction"),
+  // confidenza: z.number().nullable().describe("AI confidence score 0-100"),
+  // note: z.string().nullable().describe("Additional notes or warnings from extraction"),
 })
 
 export type EmployeeDetails = z.infer<typeof employeeDetailsSchema>

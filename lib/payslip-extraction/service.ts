@@ -57,13 +57,15 @@ export async function extractPayslipFromFile(file: File): Promise<ExtractionResu
   try {
     const document = await buildOcrDocumentPayload(validFile)
 
+    console.dir(responseFormatFromZodObject(payslipDataSchema), { depth: null })
+
+    const documentAnnotationFormat = responseFormatFromZodObject(payslipDataSchema)
+
     const ocrResponse = await client.ocr.process({
       model: MISTRAL_OCR_MODEL,
       document,
-      extractHeader: true,
-      extractFooter: true,
-      tableFormat: "markdown",
-      documentAnnotationFormat: responseFormatFromZodObject(payslipDataSchema),
+      // tableFormat: "markdown",
+      documentAnnotationFormat,
       documentAnnotationPrompt: PAYSLIP_EXTRACTION_SYSTEM_PROMPT,
     })
 
@@ -71,7 +73,7 @@ export async function extractPayslipFromFile(file: File): Promise<ExtractionResu
       throw new Error("Mistral OCR did not return any document annotation")
     }
 
-    console.log("ocrResponse.documentAnnotation", ocrResponse.documentAnnotation)
+    console.log("ocrResponse", ocrResponse)
 
     const parsedData = parsePayslipData(ocrResponse.documentAnnotation)
 
